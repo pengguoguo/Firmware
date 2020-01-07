@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2012-2018 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2012-2017 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,10 +32,12 @@
  ****************************************************************************/
 
 /**
- * @file bbblue_adc.cpp
+ * @file ocpoc_adc.cpp
  *
- * BBBlue ADC Driver
+ * OcPoC ADC Driver
  *
+ * @author Lianying Ji <ji@aerotenna.com>
+ * @author Dave Royer <dave@aerotenna.com>
  */
 
 #include <px4_platform_common/px4_config.h>
@@ -50,27 +52,18 @@
 #include <poll.h>
 #include <string.h>
 
-#ifdef __DF_BBBLUE
-#include <robotcontrol.h>
-#include <board_config.h>
-#endif
-
-#define ADC_BASE_DEV_PATH "/dev/null"
-
-#define BBBLUE_MAX_ADC_CHANNELS 	            (6)
-#define BBBLUE_MAX_ADC_USER_CHANNELS 	        (4)
-#define BBBLUE_ADC_DC_JACK_VOLTAGE_CHANNEL 		(5)
-#define BBBLUE_ADC_LIPO_BATTERY_VOLTAGE_CHANNEL (6)
+#define ADC_BASE_DEV_PATH "/dev/adc"
+#define ADC_VOLTAGE_PATH "/sys/bus/iio/devices/iio:device0/in_voltage8_raw"
 
 __BEGIN_DECLS
-__EXPORT int bbblue_adc_main(int argc, char *argv[]);
+__EXPORT int ocpoc_adc_main(int argc, char *argv[]);
 __END_DECLS
 
-class BBBlueADC: public DriverFramework::VirtDevObj
+class OcpocADC: public DriverFramework::VirtDevObj
 {
 public:
-	BBBlueADC();
-	virtual ~BBBlueADC();
+	OcpocADC();
+	virtual ~OcpocADC();
 
 	virtual int init();
 
@@ -81,67 +74,58 @@ protected:
 	virtual void _measure() override;
 
 private:
+	int read(px4_adc_msg_t(*buf)[PX4_MAX_ADC_CHANNELS], unsigned int len);
+
 	pthread_mutex_t _samples_lock;
-	px4_adc_msg_t   _samples[BBBLUE_MAX_ADC_CHANNELS];
+	px4_adc_msg_t _samples;
 };
 
-BBBlueADC::BBBlueADC()
-	: DriverFramework::VirtDevObj("bbblue_adc", ADC0_DEVICE_PATH, ADC_BASE_DEV_PATH, 1e6 / 100)
+OcpocADC::OcpocADC()
+	: DriverFramework::VirtDevObj("ocpoc_adc", ADC0_DEVICE_PATH, ADC_BASE_DEV_PATH, 1e6 / 100)
 {
 	pthread_mutex_init(&_samples_lock, NULL);
 }
 
-BBBlueADC::~BBBlueADC()
+OcpocADC::~OcpocADC()
 {
 	pthread_mutex_destroy(&_samples_lock);
-
-	rc_cleaning();
 }
 
-void BBBlueADC::_measure()
+void OcpocADC::_measure()
 {
-#ifdef __DF_BBBLUE
-	px4_adc_msg_t tmp_samples[BBBLUE_MAX_ADC_CHANNELS];
+	px4_adc_msg_t tmp_samples[PX4_MAX_ADC_CHANNELS];
 
-	for (int i = 0; i < BBBLUE_MAX_ADC_USER_CHANNELS; ++i) {
-		tmp_samples[i].am_channel = i;
-		tmp_samples[i].am_data = rc_adc_read_raw(i);
+	int ret = read(&tmp_samples, sizeof(tmp_samples));
+
+	if (ret != 0) {
+		PX4_ERR("ocpoc_adc_read: %d", ret);
 	}
-
-	tmp_samples[BBBLUE_MAX_ADC_USER_CHANNELS].am_channel = BBBLUE_ADC_LIPO_BATTERY_VOLTAGE_CHANNEL;
-	tmp_samples[BBBLUE_MAX_ADC_USER_CHANNELS].am_data    = rc_adc_read_raw(BBBLUE_ADC_LIPO_BATTERY_VOLTAGE_CHANNEL);
-
-	tmp_samples[BBBLUE_ADC_DC_JACK_VOLTAGE_CHANNEL].am_channel = BBBLUE_ADC_DC_JACK_VOLTAGE_CHANNEL;
-	tmp_samples[BBBLUE_ADC_DC_JACK_VOLTAGE_CHANNEL].am_data    = rc_adc_read_raw(BBBLUE_ADC_DC_JACK_VOLTAGE_CHANNEL);
 
 	pthread_mutex_lock(&_samples_lock);
 	memcpy(&_samples, &tmp_samples, sizeof(tmp_samples));
 	pthread_mutex_unlock(&_samples_lock);
-#endif
 }
 
-int BBBlueADC::init()
+int OcpocADC::init()
 {
-	rc_init();
+	int ret;
 
-	int ret = DriverFramework::VirtDevObj::init();
+	ret = DriverFramework::VirtDevObj::init();
 
 	if (ret != PX4_OK) {
 		PX4_ERR("init failed");
 		return ret;
 	}
 
-	_measure(); // start the initial conversion so that the test command right
-	// after the start command can return values
 	return PX4_OK;
 }
 
-int BBBlueADC::devIOCTL(unsigned long request, unsigned long arg)
+int OcpocADC::devIOCTL(unsigned long request, unsigned long arg)
 {
 	return -ENOTTY;
 }
 
-ssize_t BBBlueADC::devRead(void *buf, size_t count)
+ssize_t OcpocADC::devRead(void *buf, size_t count)
 {
 	const size_t maxsize = sizeof(_samples);
 	int ret;
@@ -162,9 +146,37 @@ ssize_t BBBlueADC::devRead(void *buf, size_t count)
 	return count;
 }
 
-static BBBlueADC *instance = nullptr;
+int OcpocADC::read(px4_adc_msg_t(*buf)[PX4_MAX_ADC_CHANNELS], unsigned int len)
+{
+	uint32_t buff[1];
+	int ret = 0;
 
-int bbblue_adc_main(int argc, char *argv[])
+	FILE *xadc_fd = fopen(ADC_VOLTAGE_PATH, "r");
+
+	if (xadc_fd != NULL) {
+		int ret_tmp = fscanf(xadc_fd, "%d", buff);
+
+		if (ret_tmp < 0) {
+			ret = ret_tmp;
+		}
+
+		fclose(xadc_fd);
+
+		(*buf)[0].am_data = buff[0];
+
+	} else {
+		(*buf)[0].am_data = 0;
+		ret = -1;
+	}
+
+	(*buf)[0].am_channel = ADC_BATTERY_VOLTAGE_CHANNEL;
+
+	return ret;
+}
+
+static OcpocADC *instance = nullptr;
+
+int ocpoc_adc_main(int argc, char *argv[])
 {
 	int ret;
 
@@ -179,7 +191,7 @@ int bbblue_adc_main(int argc, char *argv[])
 			return PX4_OK;
 		}
 
-		instance = new BBBlueADC;
+		instance = new OcpocADC;
 
 		if (!instance) {
 			PX4_WARN("not enough memory");
@@ -193,7 +205,6 @@ int bbblue_adc_main(int argc, char *argv[])
 			return PX4_ERROR;
 		}
 
-		PX4_INFO("BBBlueADC started");
 		return PX4_OK;
 
 	} else if (!strcmp(argv[1], "stop")) {
@@ -212,7 +223,7 @@ int bbblue_adc_main(int argc, char *argv[])
 			return PX4_ERROR;
 		}
 
-		px4_adc_msg_t adc_msgs[BBBLUE_MAX_ADC_CHANNELS];
+		px4_adc_msg_t adc_msgs[PX4_MAX_ADC_CHANNELS];
 
 		ret = instance->devRead((char *)&adc_msgs, sizeof(adc_msgs));
 
@@ -220,20 +231,8 @@ int bbblue_adc_main(int argc, char *argv[])
 			PX4_ERR("ret: %s (%d)\n", strerror(ret), ret);
 			return ret;
 
-		} else if (ret != sizeof(adc_msgs)) {
-			PX4_ERR("incomplete read: %d expected %d", ret, sizeof(adc_msgs));
-			return ret;
-		}
-
-		for (int i = 0; i < BBBLUE_MAX_ADC_USER_CHANNELS; ++i) {
-			PX4_INFO("ADC channel: %d; value: %d", (int)adc_msgs[i].am_channel,
-				 adc_msgs[i].am_data);
-		}
-
-		for (int i = BBBLUE_MAX_ADC_USER_CHANNELS; i < BBBLUE_MAX_ADC_CHANNELS; ++i) {
-			PX4_INFO("ADC channel: %d; value: %d, voltage: %6.2f V", (int)adc_msgs[i].am_channel,
-				 adc_msgs[i].am_data, adc_msgs[i].am_data * 1.8 / 4095.0 * 11.0);
-
+		} else {
+			PX4_INFO("ADC Data: %d", adc_msgs[0].am_data);
 		}
 
 		return PX4_OK;
@@ -248,4 +247,7 @@ int bbblue_adc_main(int argc, char *argv[])
 
 }
 
-
+uint32_t px4_arch_adc_dn_fullcount()
+{
+	return 1 << 12; // 12 bit ADC
+}

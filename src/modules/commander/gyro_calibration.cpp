@@ -301,27 +301,8 @@ int do_gyro_calibration(orb_advert_t *mavlink_log_pub)
 			sensor_gyro_s report{};
 			orb_copy(ORB_ID(sensor_gyro), worker_data.gyro_sensor_sub[cur_gyro], &report);
 
-#ifdef __PX4_NUTTX
-
-			// For NuttX, we get the UNIQUE device ID from the sensor driver via an IOCTL
-			// and match it up with the one from the uORB subscription, because the
-			// instance ordering of uORB and the order of the FDs may not be the same.
-
-			if (report.device_id == (uint32_t)worker_data.device_id[cur_gyro]) {
-				// Device IDs match, correct ORB instance for this gyro
-				found_cur_gyro = true;
-
-			} else {
-				orb_unsubscribe(worker_data.gyro_sensor_sub[cur_gyro]);
-			}
-
-#else
-
-			// For the DriverFramework drivers, we fill device ID (this is the first time) by copying one report.
 			worker_data.device_id[cur_gyro] = report.device_id;
 			found_cur_gyro = true;
-
-#endif
 		}
 
 		if (!found_cur_gyro) {

@@ -606,30 +606,11 @@ calibrate_return mag_calibrate_all(orb_advert_t *mavlink_log_pub, int32_t cal_ma
 			for (unsigned i = 0; i < orb_mag_count && !found_cur_mag; i++) {
 				worker_data.sub_mag[cur_mag] = orb_subscribe_multi(ORB_ID(sensor_mag), i);
 
-				struct mag_report report;
+				sensor_mag_s report{};
 				orb_copy(ORB_ID(sensor_mag), worker_data.sub_mag[cur_mag], &report);
 
-#ifdef __PX4_NUTTX
-
-				// For NuttX, we get the UNIQUE device ID from the sensor driver via an IOCTL
-				// and match it up with the one from the uORB subscription, because the
-				// instance ordering of uORB and the order of the FDs may not be the same.
-
-				if (report.device_id == (uint32_t)device_ids[cur_mag]) {
-					// Device IDs match, correct ORB instance for this mag
-					found_cur_mag = true;
-
-				} else {
-					orb_unsubscribe(worker_data.sub_mag[cur_mag]);
-				}
-
-#else
-
-				// For the DriverFramework drivers, we fill device ID (this is the first time) by copying one report.
 				device_ids[cur_mag] = report.device_id;
 				found_cur_mag = true;
-
-#endif
 			}
 
 			if (!found_cur_mag) {

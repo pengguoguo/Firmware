@@ -525,29 +525,8 @@ calibrate_return do_accel_calibration_measurements(orb_advert_t *mavlink_log_pub
 			sensor_accel_s report = {};
 			orb_copy(ORB_ID(sensor_accel), worker_data.subs[cur_accel], &report);
 
-#ifdef __PX4_NUTTX
-
-			// For NuttX, we get the UNIQUE device ID from the sensor driver via an IOCTL
-			// and match it up with the one from the uORB subscription, because the
-			// instance ordering of uORB and the order of the FDs may not be the same.
-
-			if (report.device_id == (uint32_t)device_id[cur_accel]) {
-				// Device IDs match, correct ORB instance for this accel
-				found_cur_accel = true;
-				// store initial timestamp - used to infer which sensors are active
-				timestamps[cur_accel] = report.timestamp;
-
-			} else {
-				orb_unsubscribe(worker_data.subs[cur_accel]);
-			}
-
-#else
-
-			// For the DriverFramework drivers, we fill device ID (this is the first time) by copying one report.
 			device_id[cur_accel] = report.device_id;
 			found_cur_accel = true;
-
-#endif
 		}
 
 		if (!found_cur_accel) {

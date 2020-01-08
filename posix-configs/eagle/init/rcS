@@ -20,8 +20,6 @@ then
 
 	qshell gps start -d /dev/tty-4
 	qshell hmc5883 start
-	qshell df_trone_wrapper start
-	#qshell df_isl29501_wrapper start
 
 # Qualcomm 200qx microheli platform
 elif param compare SYS_AUTOSTART 4200
@@ -171,7 +169,7 @@ else
 fi
 
 
-qshell df_mpu9250_wrapper start
+qshell mpu9250 start
 qshell bmp280 start
 qshell rc_update start
 qshell sensors start

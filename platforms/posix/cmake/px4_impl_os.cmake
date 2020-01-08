@@ -251,23 +251,13 @@ function(px4_os_add_flags)
 				-U__CUSTOM_FILE_IO__
 				)
 		else()
-			add_definitions(
-				-D__PX4_LINUX
-				-D__DF_LINUX
-				)
+			add_definitions(-D__PX4_LINUX)
 		endif()
 
 	elseif (("${PX4_BOARD}" MATCHES "navio2") OR ("${PX4_BOARD}" MATCHES "raspberrypi"))
 
 		#TODO: move to board support
-
-		add_definitions(
-			-D__PX4_LINUX
-
-			# For DriverFramework
-			-D__DF_LINUX
-			-D__DF_RPI
-		)
+		add_definitions(-D__PX4_LINUX)
 
 	elseif ("${PX4_BOARD}" MATCHES "aerotenna_ocpoc")
 
@@ -276,10 +266,6 @@ function(px4_os_add_flags)
 		add_definitions(
 			-D__PX4_LINUX
 			-D__PX4_POSIX_OCPOC # TODO: remove
-
-			# For DriverFramework
-			-D__DF_LINUX
-			-D__DF_OCPOC
 		)
 
 	elseif ("${PX4_BOARD}" MATCHES "beaglebone_blue")
@@ -287,10 +273,6 @@ function(px4_os_add_flags)
 		add_definitions(
 			-D__PX4_LINUX
 			-D__PX4_POSIX_BBBLUE # TODO: remove
-
-			# For DriverFramework
-			-D__DF_LINUX
-			-D__DF_BBBLUE
 
 			-DRC_AUTOPILOT_EXT  # Enable extensions in Robotics Cape Library, TODO: remove
 		)

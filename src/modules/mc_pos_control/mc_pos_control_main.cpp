@@ -95,14 +95,14 @@ public:
 	/** @see ModuleBase */
 	static int print_usage(const char *reason = nullptr);
 
-	void Run() override;
-
 	bool init();
 
 	/** @see ModuleBase::print_status() */
 	int print_status() override;
 
 private:
+	void Run() override;
+
 	Takeoff _takeoff; /**< state machine and ramp to bring the vehicle off the ground without jumps */
 
 	uORB::Publication<vehicle_attitude_setpoint_s>	_vehicle_attitude_setpoint_pub;
@@ -254,7 +254,7 @@ private:
 	 * to true, the failsafe will be initiated immediately.
 	 */
 	void failsafe(vehicle_local_position_setpoint_s &setpoint, const PositionControlStates &states, const bool force,
-		      const bool warn);
+		      bool warn);
 
 	/**
 	 * Reset setpoints to NAN
@@ -921,8 +921,13 @@ MulticopterPositionControl::limit_thrust_during_landing(vehicle_attitude_setpoin
 
 void
 MulticopterPositionControl::failsafe(vehicle_local_position_setpoint_s &setpoint, const PositionControlStates &states,
-				     const bool force, const bool warn)
+				     const bool force, bool warn)
 {
+	// do not warn while we are disarmed, as we might not have valid setpoints yet
+	if (!_control_mode.flag_armed) {
+		warn = false;
+	}
+
 	_failsafe_land_hysteresis.set_state_and_update(true, hrt_absolute_time());
 
 	if (!_failsafe_land_hysteresis.get_state() && !force) {

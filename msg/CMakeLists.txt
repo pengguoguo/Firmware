@@ -61,6 +61,7 @@ set(msg_files
 	esc_report.msg
 	esc_status.msg
 	estimator_innovations.msg
+	estimator_sensor_bias.msg
 	estimator_status.msg
 	follow_target.msg
 	geofence_result.msg
@@ -108,7 +109,6 @@ set(msg_files
 	sensor_accel_integrated.msg
 	sensor_accel_status.msg
 	sensor_baro.msg
-	sensor_bias.msg
 	sensor_combined.msg
 	sensor_correction.msg
 	sensor_gyro.msg
@@ -135,6 +135,7 @@ set(msg_files
 	ulog_stream_ack.msg
 	vehicle_acceleration.msg
 	vehicle_air_data.msg
+	vehicle_angular_acceleration.msg
 	vehicle_angular_velocity.msg
 	vehicle_attitude.msg
 	vehicle_attitude_setpoint.msg
@@ -144,6 +145,7 @@ set(msg_files
 	vehicle_control_mode.msg
 	vehicle_global_position.msg
 	vehicle_gps_position.msg
+	vehicle_imu.msg
 	vehicle_land_detected.msg
 	vehicle_local_position.msg
 	vehicle_local_position_setpoint.msg

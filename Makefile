@@ -254,7 +254,7 @@ px4fmu_firmware: \
 misc_qgc_extra_firmware: \
 	check_nxp_fmuk66-v3_default \
 	check_intel_aerofc-v1_default \
-	check_auav_x21_default \
+	check_mro_x21_default \
 	check_bitcraze_crazyflie_default \
 	check_airmind_mindpx-v2_default \
 	check_px4_fmu-v2_lpe \
@@ -437,7 +437,7 @@ clang-tidy-quiet: px4_sitl_default-clang
 # TODO: Fix cppcheck errors then try --enable=warning,performance,portability,style,unusedFunction or --enable=all
 cppcheck: px4_sitl_default
 	@mkdir -p "$(SRC_DIR)"/build/cppcheck
-	@cppcheck -i"$(SRC_DIR)"/src/examples --enable=performance --std=c++11 --std=c99 --std=posix --project="$(SRC_DIR)"/build/px4_sitl_default/compile_commands.json --xml-version=2 2> "$(SRC_DIR)"/build/cppcheck/cppcheck-result.xml > /dev/null
+	@cppcheck -i"$(SRC_DIR)"/src/examples --enable=performance --std=c++14 --std=c99 --std=posix --project="$(SRC_DIR)"/build/px4_sitl_default/compile_commands.json --xml-version=2 2> "$(SRC_DIR)"/build/cppcheck/cppcheck-result.xml > /dev/null
 	@cppcheck-htmlreport --source-encoding=ascii --file="$(SRC_DIR)"/build/cppcheck/cppcheck-result.xml --report-dir="$(SRC_DIR)"/build/cppcheck --source-dir="$(SRC_DIR)"/src/
 
 shellcheck_all:
